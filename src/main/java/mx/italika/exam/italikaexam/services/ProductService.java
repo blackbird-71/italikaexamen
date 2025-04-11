@@ -2,12 +2,14 @@ package mx.italika.exam.italikaexam.services;
 
 
 
+import mx.italika.exam.italikaexam.mappers.ProductRowMapper;
 import mx.italika.exam.italikaexam.models.Product;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,68 +17,50 @@ import java.util.List;
 @Service
 public class ProductService {
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     private static final Logger log = LoggerFactory.getLogger(ProductService.class);
 
-    //String jdbcUrl = "jdbc:sqlserver://localhost:1433;databaseName=store";
-    String jdbcUrl = "jdbc:sqlserver://sqlserver:1433;databaseName=store;user=sa;password=OscarRuiz-71";
-//    String user = "sa";
-//    String password = "OscarRuiz-71";
-    String query = "SELECT * from product";
-
-
     public List<Product> getProducts() {
+
         List<Product> products = new ArrayList<>();
 
-        log.info("Conectando");
-        try (Connection connection = DriverManager.getConnection(jdbcUrl)) {
-            //try (Connection conn = DriverManager.getConnection(jdbcUrl)) {
-            //    CallableStatement stmt = conn.prepareCall("{call sp_Productos_CRUD(?, ?, ?, ?, ?, ?)}");
-            log.info("Conectado");
-
-            Statement statement = connection.createStatement();
-
-            boolean execute = statement.execute(query);
-            log.info("Es resulSet : " + execute);
-            //ResultSet rs= statement.executeQuery(query);
-            ResultSet rs = statement.getResultSet();
-
-
-            while (rs.next()) {
-                log.info("\nId {} \tName {} \tDescription {} \tPrice {} \tStock {}",
-                        rs.getInt(1),
-                        rs.getString(2),
-                        rs.getString(3),
-                        rs.getDouble(4),
-                        rs.getInt(5)
-                );
-            }
-
-            products = new ArrayList<>();
-
-            while(rs.next()){
-
-                var product = new Product();
-                product.setProductId(rs.getInt(1));
-                product.setProductName(rs.getString(2));
-                product.setDescription(rs.getString(3));
-                product.setPrice(rs.getDouble(4));
-                product.setStock(rs.getInt(5));
-
-                products.add(product);
-            }
-
-            products.forEach(product -> log.info(product.toString()));
-
-
-            statement.close();
-
-        } catch (SQLException e) {
-            log.error(e.getMessage());
-        }
-        log.info("Cerrada la conexión");
+        products = jdbcTemplate.query(
+                "EXEC sp_Productos_CRUD ?, NULL, NULL, NULL, NULL, NULL",
+                new Object[]{"READ"},
+                new ProductRowMapper()
+        );
 
         return products;
+    }
 
+    public Product getProductById(Integer id) {
+        Product producto = new Product();
+
+        producto = jdbcTemplate.queryForObject(
+                "EXEC sp_Productos_CRUD ?, ?, NULL, NULL, NULL, NULL",
+                new Object[]{"READ", id},
+                new ProductRowMapper()
+        );
+
+        return producto;
+    }
+
+    public int insertProduct(Product product) {
+        return jdbcTemplate.update("EXEC sp_Productos_CRUD ?, NULL, ?, ?, ?, ?",
+                new Object[]{"CREATE",product.getProductName(), product.getDescription(), product.getPrice(), product.getStock()}
+                );
+    }
+
+    public int updateProduct(Integer productId, Product product) {
+        return jdbcTemplate.update("EXEC sp_Productos_CRUD ?, ?, ?, ?, ?, ?",
+                new Object[]{"UPDATE", productId, product.getProductName(), product.getDescription(), product.getPrice(), product.getStock()});
+    }
+
+    public int deleteProduct(Integer productId) {
+        return jdbcTemplate.update("EXEC sp_Productos_CRUD ?, ?, NULL, NULL, NULL, NULL",
+                new Object[]{"DELETE", productId});
     }
 
 }
